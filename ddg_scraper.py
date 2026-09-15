@@ -54,7 +54,6 @@ class DuckDuckGoScraper:
     @staticmethod
     def remove_date_from_body(body: str) -> str:
         """Remove date prefix dari body (e.g., 'January 10, 2026 - ')"""
-        import re
         # Pattern: Month Day(s), Year - atau short format Month Day, Year atau Month Year -
         pattern = r'^[A-Za-z]+\s+\d{1,2},?\s+\d{4}\s*[–-]\s*'
         # Also handle formats like "1 month ago -" atau "Nov 6, 2023 ·"

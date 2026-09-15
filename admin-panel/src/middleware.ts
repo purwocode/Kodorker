@@ -14,7 +14,9 @@ export async function middleware(request: NextRequest) {
         pathname === '/' ||
         pathname === '/peler' ||
         pathname === '/api/auth/login' ||
+        pathname === '/api/auth/logout' ||  // BUG FIX: logout should be public
         pathname === '/api/stats' ||
+        pathname === '/api/supabase-usage' ||  // BUG FIX: metrics should be public
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
         pathname === '/favicon.ico';
