@@ -186,12 +186,13 @@ class DuckDuckGoScraper:
         self.all_results = []
         print("[*] Infinite search tracking reset")
     
-    def scrape(self, max_results: int = 20) -> List[Dict]:
+    def scrape(self, max_results: int = 20, retries: int = 3) -> List[Dict]:
         """
-        Scrape DuckDuckGo search results
+        Scrape DuckDuckGo search results dengan retry logic
         
         Args:
             max_results: Jumlah hasil maksimal yang ingin diambil
+            retries: Jumlah retry jika ada network error
             
         Returns:
             List of search results dengan structure:
@@ -202,59 +203,83 @@ class DuckDuckGoScraper:
                 'link': str (full URL)
             }
         """
-        try:
-            print(f"[*] Scraping DuckDuckGo untuk: '{self.query}'")
-            print(f"[*] Max results: {max_results}")
-            
-            raw_results = list(self.ddgs.text(
-                self.query,
-                max_results=max_results,
-                timelimit='y'  # Hasil 1 tahun terakhir
-            ))
-            
-            # Transform to title + body + domain + link format
-            self.results = []
-            self.clear_duplicates()  # Reset tracking untuk scrape baru
-            skipped_excluded = 0
-            skipped_duplicate = 0
-            
-            for result in raw_results:
-                title = result.get('title', '')
-                body = self.remove_date_from_body(result.get('body', ''))
-                href = result.get('href', '')
-                domain = self.extract_domain(href)
+        for attempt in range(1, retries + 1):
+            try:
+                print(f"[*] Scraping DuckDuckGo untuk: '{self.query}'")
+                print(f"[*] Max results: {max_results}")
                 
-                # Skip jika domain ada di excluded list
-                if self.is_domain_excluded(domain):
-                    skipped_excluded += 1
+                raw_results = list(self.ddgs.text(
+                    self.query,
+                    max_results=max_results,
+                    timelimit='y'  # Hasil 1 tahun terakhir
+                ))
+                
+                # Transform to title + body + domain + link format
+                self.results = []
+                self.clear_duplicates()  # Reset tracking untuk scrape baru
+                skipped_excluded = 0
+                skipped_duplicate = 0
+                
+                for result in raw_results:
+                    title = result.get('title', '')
+                    body = self.remove_date_from_body(result.get('body', ''))
+                    href = result.get('href', '')
+                    domain = self.extract_domain(href)
+                    
+                    # Skip jika domain ada di excluded list
+                    if self.is_domain_excluded(domain):
+                        skipped_excluded += 1
+                        continue
+                    
+                    # Skip jika link atau domain sudah ada (duplicate)
+                    if self.is_duplicate(href, domain):
+                        skipped_duplicate += 1
+                        continue
+                    
+                    transformed = {
+                        'title': title,
+                        'body': body,
+                        'domain': domain,
+                        'link': href
+                    }
+                    self.results.append(transformed)
+                    self.add_to_tracking(href, domain)  # Track hasil yang diambil
+                
+                if skipped_excluded > 0:
+                    print(f"[*] Skipped {skipped_excluded} hasil dari excluded domains")
+                if skipped_duplicate > 0:
+                    print(f"[*] Skipped {skipped_duplicate} hasil (duplicate link/domain)")
+                
+                print(f"[+] Berhasil! Ditemukan {len(self.results)} hasil\n")
+                
+                return self.results
+                
+            except Exception as e:
+                error_msg = str(e)
+                
+                # Check if it's a network error (connection refused, timeout, etc)
+                is_network_error = any(err in error_msg.lower() for err in [
+                    'connection refused', 'connection timeout', 'connection reset',
+                    'timeouterror', 'connectionerror', 'os error 111', 'os error 110'
+                ])
+                
+                if is_network_error and attempt < retries:
+                    # Network error - retry setelah delay
+                    wait_time = 5 * attempt  # 5s, 10s, 15s exponential backoff
+                    print(f"[!] Network error (attempt {attempt}/{retries}): {e}")
+                    print(f"[*] Retrying dalam {wait_time} detik...")
+                    time.sleep(wait_time)
                     continue
-                
-                # Skip jika link atau domain sudah ada (duplicate)
-                if self.is_duplicate(href, domain):
-                    skipped_duplicate += 1
-                    continue
-                
-                transformed = {
-                    'title': title,
-                    'body': body,
-                    'domain': domain,
-                    'link': href
-                }
-                self.results.append(transformed)
-                self.add_to_tracking(href, domain)  # Track hasil yang diambil
-            
-            if skipped_excluded > 0:
-                print(f"[*] Skipped {skipped_excluded} hasil dari excluded domains")
-            if skipped_duplicate > 0:
-                print(f"[*] Skipped {skipped_duplicate} hasil (duplicate link/domain)")
-            
-            print(f"[+] Berhasil! Ditemukan {len(self.results)} hasil\n")
-            
-            return self.results
-            
-        except Exception as e:
-            print(f"[-] Error: {e}")
-            return []
+                else:
+                    # Either not network error, atau sudah max retries
+                    if is_network_error:
+                        print(f"[-] Network error after {retries} retries: {e}")
+                        print(f"[-] Skipping query '{self.query}' (network issue)")
+                    else:
+                        print(f"[-] Error: {e}")
+                    return []
+        
+        return []
     
     def print_results(self, limit: int = None):
         """Tampilkan hasil ke console"""
