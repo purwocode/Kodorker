@@ -42,6 +42,8 @@ class DuckDuckGoScraper:
         'amazon.com', 'ebay.com', 'aliexpress.com',
         # Developer/Code Hosting
         'github.com', 'gitlab.com', 'bitbucket.org', 'stackoverflow.com',
+        # Search Engines & Tech Platforms
+        'bing.com', 'yahoo.com', 'microsoft.com',
         # Other
         'wikipedia.org', 'wiki.fandom.com',  # Optional: uncomment jika ingin exclude
     }
