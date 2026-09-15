@@ -40,6 +40,8 @@ class DuckDuckGoScraper:
         'play.google.com', 'ads.google.com',
         # Ads/Marketing
         'amazon.com', 'ebay.com', 'aliexpress.com',
+        # Developer/Code Hosting
+        'github.com', 'gitlab.com', 'bitbucket.org', 'stackoverflow.com',
         # Other
         'wikipedia.org', 'wiki.fandom.com',  # Optional: uncomment jika ingin exclude
     }
