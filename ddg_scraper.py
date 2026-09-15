@@ -32,10 +32,14 @@ class DuckDuckGoScraper:
         'twitch.tv', 'rumble.com', 'odysee.com',
         # Music/Streaming
         'spotify.com', 'apple.com', 'music.apple.com', 'soundcloud.com',
+        # Video Streaming Services
+        'netflix.com', 'primevideo.com',
         # Google Services
         'play.google.com', 'ads.google.com',
         # Ads/Marketing
         'amazon.com', 'ebay.com', 'aliexpress.com',
+        # E-commerce
+        'shopee.co.id', 'tokopedia.com',
         # Developer/Code Hosting
         'github.com', 'gitlab.com', 'bitbucket.org', 'stackoverflow.com',
         # Search Engines & Tech Platforms
