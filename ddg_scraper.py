@@ -32,8 +32,10 @@ class DuckDuckGoScraper:
         'twitch.tv', 'rumble.com', 'odysee.com',
         # Music/Streaming
         'spotify.com', 'apple.com', 'music.apple.com', 'soundcloud.com',
+        # Google Services
+        'play.google.com', 'ads.google.com',
         # Ads/Marketing
-        'ads.google.com', 'amazon.com', 'ebay.com', 'aliexpress.com',
+        'amazon.com', 'ebay.com', 'aliexpress.com',
         # Other
         'wikipedia.org', 'wiki.fandom.com',  # Optional: uncomment jika ingin exclude
     }
