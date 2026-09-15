@@ -1,0 +1,58 @@
+.vercel
+
+# Environment variables (CRITICAL - NEVER COMMIT!)
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Node / Next.js
+node_modules/
+/.next/
+/out/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test outputs
+results.json
+results.csv
+results.txt
+infinite_results.json
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Production build
+admin-panel/.next/
+admin-panel/out/
