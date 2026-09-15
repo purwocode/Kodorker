@@ -645,12 +645,25 @@ def example_test_subdomain_exclusion():
         print("❌ Ada beberapa test yang gagal. Cek konfigurasi excluded_domains\n")
 
 
-def example_infinite_search_with_input(initial_query: str):
-    """Infinite Search dengan input query dari user"""
+def example_infinite_search_with_input(initial_query: str, max_results: int = None):
+    """Infinite Search dengan input query dan max_results dari user"""
+    # Jika max_results tidak diberikan, minta input dari user
+    if max_results is None:
+        while True:
+            try:
+                max_results_input = input("[?] Berapa hasil per query? (default 10): ").strip()
+                max_results = int(max_results_input) if max_results_input else 10
+                if max_results <= 0:
+                    print("[!] Nilai harus > 0")
+                    continue
+                break
+            except ValueError:
+                print("[!] Input tidak valid, gunakan angka")
+    
     scraper = DuckDuckGoScraper(initial_query)
     
     print("\n" + "="*100)
-    print(f"INFINITE SEARCH MODE - Query Awal: '{initial_query}'")
+    print(f"INFINITE SEARCH MODE - Query Awal: '{initial_query}' | Max Results: {max_results}")
     print("="*100)
     print("Fitur ini akan:")
     print("  1. Mulai dari query Anda")
@@ -661,7 +674,7 @@ def example_infinite_search_with_input(initial_query: str):
     
     results = scraper.infinite_search(
         initial_query=initial_query,
-        max_results=5,
+        max_results=max_results,
         auto_save=True
     )
     
@@ -809,6 +822,7 @@ def main():
         if not query:
             print("[-] Query tidak boleh kosong!")
             return
+        # Input max_results, jika tidak diberikan akan minta input di function
         example_infinite_search_with_input(query)
     
     elif choice == "6":
