@@ -13,10 +13,6 @@ from urllib.parse import urlparse
 import re
 from dotenv import load_dotenv
 import os
-import requests
-import random
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # Load environment variables from .env
 load_dotenv()
@@ -166,194 +162,35 @@ class DuckDuckGoScraper:
         self.seen_domains.clear()
         print("[*] Duplicate tracking cleared")
     
-    @staticmethod
-    def get_session_with_retries(retries=3, timeout=5):
-        """Create requests session dengan retry logic"""
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=retries,
-            status_forcelist=[429, 500, 502, 503, 504],
-            method_whitelist=["HEAD", "GET", "OPTIONS"],
-            backoff_factor=1
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        session.timeout = timeout
-        return session
     
-    @staticmethod
-    def extract_meta_keywords_from_html(html_content: str) -> str:
-        """Extract meta keywords content dari HTML
-        
-        Mencari: <meta name="keywords" content="..."/>
-        Return: content dari meta tag (comma-separated)
-        """
-        try:
-            # Pattern: <meta name="keywords" content="...">
-            pattern = r'<meta\s+name=["\']keywords["\']\s+content=["\']([^"\']+)["\']'
-            match = re.search(pattern, html_content, re.IGNORECASE)
-            
-            if match:
-                return match.group(1).strip()
-            
-            # Alternative pattern (reversed attribute order)
-            pattern2 = r'<meta\s+content=["\']([^"\']+)["\']\s+name=["\']keywords["\']\s*/?>'
-            match2 = re.search(pattern2, html_content, re.IGNORECASE)
-            
-            if match2:
-                return match2.group(1).strip()
-            
-            return ""
-        except Exception as e:
-            return ""
-    
-    @staticmethod
-    def fetch_html_from_url(url: str, timeout: int = 5) -> str:
-        """Fetch HTML dari URL dengan realistic user-agent dan headers"""
-        try:
-            # Rotate user-agents untuk bypass blocking
-            user_agents = [
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
-                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            ]
-            
-            ua = random.choice(user_agents)
-            
-            headers = {
-                'User-Agent': ua,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Cache-Control': 'max-age=0',
-            }
-            
-            session = requests.Session()
-            session.timeout = timeout
-            
-            response = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
-            response.raise_for_status()
-            return response.text
-        except Exception as e:
-            # Silently fail - jika tidak bisa fetch, skip meta keywords
-            return ""
-    
-    def extract_keywords_from_meta(self, limit: int = 10, fetch_timeout: int = 5, fallback_to_title: bool = True) -> List[str]:
-        """Ekstrak keywords dari meta tags di setiap hasil dengan fallback ke title keywords
-        
-        Approach:
-        1. Fetch HTML dari setiap link (limited timeout untuk speed)
-        2. Extract <meta name="keywords" content="...">
-        3. Parse comma-separated keywords
-        4. FALLBACK: Jika meta tidak ditemukan, gunakan title keywords
-        5. Return unique keywords yang belum digunakan
-        
-        Args:
-            limit: Max keywords yang ingin diambil
-            fetch_timeout: Timeout per URL fetch (detik)
-            fallback_to_title: Jika True, gunakan title keywords jika meta tidak ditemukan
-        """
+    def extract_keywords_from_titles(self, limit: int = 20) -> List[str]:
+        """Ekstrak keywords per-kata dari titles hasil scraping"""
         if not self.results:
             return []
         
         keywords = []
-        fetched_count = 0
-        meta_found_count = 0
-        title_fallback_count = 0
-        failed_fetch_count = 0
+        common_words = {'the', 'a', 'an', 'is', 'are', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'how', 'what', 'when', 'where', 'why', 'about', 'facts', 'guide', 'tutorial', 'learn', '–', '-', '|', ',', '.', '(', ')'}
         
-        print(f"[*] Fetching meta keywords dari {len(self.results)} results (timeout: {fetch_timeout}s, fallback: {fallback_to_title})...")
-        
-        for i, result in enumerate(self.results[:limit], 1):
-            url = result.get('link', '')
-            domain = result.get('domain', '')
+        # Extract kata per kata dari semua results
+        for result in self.results[:limit]:
             title = result.get('title', '')
+            words = title.lower().split()
             
-            if not url:
-                continue
-            
-            # Try fetch HTML for meta keywords
-            html = self.fetch_html_from_url(url, timeout=fetch_timeout)
-            
-            if html:
-                # Extract meta keywords
-                meta_keywords_str = self.extract_meta_keywords_from_html(html)
+            for word in words:
+                # Clean punctuation
+                word = re.sub(r'[^\w]', '', word)
                 
-                if meta_keywords_str:
-                    # Parse comma-separated keywords
-                    parsed_keywords = [kw.strip() for kw in meta_keywords_str.split(',')]
-                    parsed_keywords = [kw for kw in parsed_keywords if kw]  # Remove empty
-                    
-                    # Filter: only add if not already used
-                    for kw in parsed_keywords:
-                        if (kw and len(kw) > 2 and 
-                            kw.lower() not in [k.lower() for k in keywords] and 
-                            kw.lower() not in self.used_queries):
-                            keywords.append(kw)
-                    
-                    meta_found_count += 1
-                    fetched_count += 1
-                    print(f"  [{i}] {domain}: ✓ Meta keywords ({len(parsed_keywords)} items)")
+                # Filter: meaningful words only
+                if (word and len(word) > 2 and 
+                    word not in common_words and 
+                    word.lower() not in [k.lower() for k in keywords] and
+                    word.lower() not in self.used_queries):
+                    keywords.append(word)
                     
                     if len(keywords) >= limit:
-                        break
-                else:
-                    # Meta keywords tidak ditemukan, cek fallback
-                    if fallback_to_title and title:
-                        words = title.lower().split()
-                        common_words = {'the', 'a', 'an', 'is', 'are', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'how', 'what', 'when', 'where', 'why', 'best', 'guide', 'tutorial', 'learn', 'about', 'facts', 'curious', 'interesting', 'number', 'amazing'}
-                        meaningful_words = [w for w in words if len(w) > 3 and w not in common_words]
-                        
-                        if meaningful_words:
-                            keyword = ' '.join(meaningful_words[:2])
-                            if keyword and keyword.lower() not in [k.lower() for k in keywords]:
-                                keywords.append(keyword)
-                                title_fallback_count += 1
-                    
-                    fetched_count += 1
-                    print(f"  [{i}] {domain}: - Meta not found (fallback: {'title' if fallback_to_title and title else 'skip'})")
-            else:
-                # Fetch gagal
-                failed_fetch_count += 1
-                print(f"  [{i}] {domain}: ✗ Fetch failed (timeout/blocked)")
-        
-        print(f"[+] Meta keywords fetch summary:")
-        print(f"    - Meta keywords found: {meta_found_count}")
-        print(f"    - Fallback to title: {title_fallback_count}")
-        print(f"    - Fetch failed: {failed_fetch_count}")
-        print(f"    - Total unique keywords: {len(keywords)}")
+                        return keywords
         
         return keywords[:limit]
-    
-    def extract_keywords_from_titles(self, limit: int = 5) -> List[str]:
-        """Ekstrak keywords dari titles hasil scraping"""
-        if not self.results:
-            return []
-        
-        keywords = []
-        for result in self.results[:limit]:
-            title = result.get('title', '').lower()
-            # Split title dan ambil 2-3 kata pertama yang meaningful
-            words = title.split()
-            # Filter common words
-            common_words = {'the', 'a', 'an', 'is', 'are', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'how', 'what', 'when', 'where', 'why', 'best', 'guide', 'tutorial', 'learn'}
-            meaningful_words = [w for w in words if len(w) > 3 and w not in common_words]
-            
-            if meaningful_words:
-                # Ambil 2-3 kata pertama
-                keyword = ' '.join(meaningful_words[:2])
-                if keyword and keyword not in keywords and keyword not in self.used_queries:
-                    keywords.append(keyword)
-        
-        return keywords[:5]  # Return max 5 keywords
     
     def reset_infinite_tracking(self):
         """Reset tracking untuk infinite search baru"""
@@ -473,25 +310,21 @@ class DuckDuckGoScraper:
             print(f"   Link: {result['link']}")
             print()
     
-    def infinite_search(self, initial_query: str, max_results: int = 10, auto_save: bool = False, use_meta_keywords: bool = False):
-        """Infinite search - scrape lalu gunakan extracted keywords sebagai query baru
+    def infinite_search(self, initial_query: str, max_results: int = 10, auto_save: bool = False):
+        """Infinite search - scrape lalu gunakan extracted keywords (per-kata) sebagai query baru
         
         Args:
             initial_query: Query awal
             max_results: Hasil per query
             auto_save: Otomatis save ke Supabase setiap query
-            use_meta_keywords: Jika True, gunakan meta keywords dari HTML (lebih akurat tapi lebih lambat)
-                              Jika False, gunakan keywords dari title (cepat, default)
         """
         self.query = initial_query
         self.reset_infinite_tracking()
         iteration = 0
         
-        keyword_source = "Meta Keywords" if use_meta_keywords else "Title Keywords"
-        
         print(f"\n{'='*100}")
         print(f"INFINITE SEARCH MODE - Tekan CTRL+C untuk berhenti")
-        print(f"Keyword Source: {keyword_source}")
+        print(f"Keyword extraction: Per-word dari title (cepat)")
         print(f"{'='*100}\n")
         
         try:
@@ -501,12 +334,7 @@ class DuckDuckGoScraper:
                 # Cek jika query sudah pernah digunakan
                 if self.query.lower() in self.used_queries:
                     print(f"[!] Query '{self.query}' sudah digunakan sebelumnya, mencari keyword alternatif...")
-                    
-                    # Extract keywords berdasarkan mode
-                    if use_meta_keywords:
-                        keywords = self.extract_keywords_from_meta(limit=10, fetch_timeout=5, fallback_to_title=True)
-                    else:
-                        keywords = self.extract_keywords_from_titles(limit=10)
+                    keywords = self.extract_keywords_from_titles(limit=10)
                     
                     if not keywords:
                         print(f"[!] Tidak ada keyword baru yang tersedia. Infinite search selesai.")
@@ -535,10 +363,7 @@ class DuckDuckGoScraper:
                     self.save_to_supabase()
                 
                 # Extract keywords untuk query berikutnya
-                if use_meta_keywords:
-                    next_keywords = self.extract_keywords_from_meta(limit=5, fetch_timeout=5, fallback_to_title=True)
-                else:
-                    next_keywords = self.extract_keywords_from_titles(limit=5)
+                next_keywords = self.extract_keywords_from_titles(limit=10)
                 
                 if not next_keywords:
                     print(f"[!] Tidak ada keyword untuk lanjut scraping.")
@@ -874,33 +699,14 @@ def example_infinite_search_with_input(initial_query: str, max_results: int = No
             except ValueError:
                 print("[!] Input tidak valid, gunakan angka")
     
-    # Ask user tentang keyword extraction mode
-    print("\n" + "="*100)
-    print("PILIH KEYWORD EXTRACTION MODE:")
-    print("="*100)
-    print("1. Title Keywords (CEPAT - default)")
-    print("   - Extract keywords dari title hasil pencarian")
-    print("   - Kecepatan: ~1-2 detik per query")
-    print("")
-    print("2. Meta Keywords (AKURAT tapi LAMBAT)")
-    print("   - Fetch HTML & extract <meta name='keywords' content='...'/>")
-    print("   - Parse comma-separated keywords")
-    print("   - Contoh: 'Jual Akun,Item Digital,Joki Game' → query: 'Jual Akun'")
-    print("   - Kecepatan: ~5-10 detik per query (tergantung timeout)")
-    print("="*100)
-    
-    keyword_mode_input = input("[?] Pilih mode (1/2, default 1): ").strip()
-    use_meta_keywords = keyword_mode_input == "2"
-    
     scraper = DuckDuckGoScraper(initial_query)
     
     print("\n" + "="*100)
-    mode_name = "Meta Keywords" if use_meta_keywords else "Title Keywords"
-    print(f"INFINITE SEARCH MODE - Query Awal: '{initial_query}' | Max Results: {max_results} | Mode: {mode_name}")
+    print(f"INFINITE SEARCH MODE - Query Awal: '{initial_query}' | Max Results: {max_results}")
     print("="*100)
     print("Fitur ini akan:")
     print("  1. Mulai dari query Anda")
-    print("  2. Ekstrak keywords dari hasil (sesuai mode)")
+    print("  2. Ekstrak keywords per-kata dari hasil (cepat)")
     print("  3. Gunakan keywords sebagai query berikutnya")
     print("  4. Lanjut terus sampai CTRL+C")
     print("  5. Tekan CTRL+C untuk confirm stop\n")
@@ -908,8 +714,7 @@ def example_infinite_search_with_input(initial_query: str, max_results: int = No
     results = scraper.infinite_search(
         initial_query=initial_query,
         max_results=max_results,
-        auto_save=True,
-        use_meta_keywords=use_meta_keywords
+        auto_save=True
     )
     
     # Handle None case (shouldn't happen now but defensive)
