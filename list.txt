@@ -1,0 +1,14 @@
+# KEYWORDS LIST - Infinite Search Batch
+# Format: 1 keyword per line
+# Lines starting with # adalah comments (akan di-skip)
+
+python
+javascript
+machine learning
+web development
+data science
+artificial intelligence
+cloud computing
+cybersecurity
+blockchain
+devops
