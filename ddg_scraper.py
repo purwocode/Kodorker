@@ -349,7 +349,10 @@ class DuckDuckGoScraper:
                 return self.all_results
             else:
                 print(f"[*] Lanjut scraping...\n")
-                self.infinite_search(self.query, max_results, auto_save)
+                return self.infinite_search(self.query, max_results, auto_save)
+        
+        # Return results ketika loop break (normal completion)
+        return self.all_results
     
     def get_infinite_results(self):
         """Get semua results dari infinite search"""
@@ -450,8 +453,32 @@ class DuckDuckGoScraper:
             return True
             
         except Exception as e:
-            print(f"[-] Error saving to Supabase: {e}")
-            return False
+            error_msg = str(e)
+            # Handle duplicate key constraint error
+            if '23505' in error_msg or 'duplicate key' in error_msg.lower():
+                print(f"[!] Beberapa hasil sudah ada di Supabase (duplicate links), coba save dengan filter...")
+                # Try saving without duplicates if possible
+                try:
+                    successful_count = 0
+                    failed_count = 0
+                    for item in data_to_insert:
+                        try:
+                            self.supabase.table(table_name).insert([item]).execute()
+                            successful_count += 1
+                        except Exception as item_error:
+                            if '23505' in str(item_error) or 'duplicate key' in str(item_error).lower():
+                                failed_count += 1
+                            else:
+                                raise
+                    
+                    print(f"[+] Berhasil! {successful_count} hasil disimpan (duplikat: {failed_count} skipped)")
+                    return True
+                except Exception as inner_error:
+                    print(f"[-] Gagal save individual items: {inner_error}")
+                    return False
+            else:
+                print(f"[-] Error saving to Supabase: {e}")
+                return False
 
 
 def example_basic():
@@ -637,6 +664,10 @@ def example_infinite_search_with_input(initial_query: str):
         max_results=5,
         auto_save=True
     )
+    
+    # Handle None case (shouldn't happen now but defensive)
+    if results is None:
+        results = scraper.all_results
     
     # Summary
     print(f"\n[+] Infinite search selesai!")
