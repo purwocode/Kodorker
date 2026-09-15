@@ -114,6 +114,9 @@ class DuckDuckGoScraper:
         # Track used queries untuk infinite search
         self.used_queries = set()
         self.all_results = []  # Simpan semua results dari semua queries
+        
+        # Track saved domains globally (keep only 1 link per domain)
+        self.saved_domains = set()  # Domains yang sudah disimpan ke Supabase
     
     def add_excluded_domain(self, domain: str):
         """Tambah domain ke excluded list"""
@@ -153,7 +156,8 @@ class DuckDuckGoScraper:
         """Check jika link atau domain sudah ada (duplicate)"""
         link_lower = link.lower()
         domain_lower = domain.lower()
-        return link_lower in self.seen_links or domain_lower in self.seen_domains
+        # Check current scrape duplicates OR global saved domains
+        return link_lower in self.seen_links or domain_lower in self.seen_domains or domain_lower in self.saved_domains
     
     def add_to_tracking(self, link: str, domain: str):
         """Tambah link dan domain ke tracking set"""
@@ -200,6 +204,7 @@ class DuckDuckGoScraper:
         """Reset tracking untuk infinite search baru"""
         self.used_queries.clear()
         self.all_results = []
+        self.saved_domains.clear()  # Clear global domain tracking
         print("[*] Infinite search tracking reset")
     
     def scrape(self, max_results: int = 20, retries: int = 3) -> List[Dict]:
@@ -249,7 +254,10 @@ class DuckDuckGoScraper:
                     
                     # Skip jika link atau domain sudah ada (duplicate)
                     if self.is_duplicate(href, domain):
-                        skipped_duplicate += 1
+                        if domain.lower() in self.saved_domains:
+                            skipped_duplicate += 1  # Domain sudah ada dari query sebelumnya
+                        else:
+                            skipped_duplicate += 1  # Link sudah ada dalam query ini
                         continue
                     
                     transformed = {
@@ -492,6 +500,10 @@ class DuckDuckGoScraper:
             # Insert data to Supabase
             response = self.supabase.table(table_name).insert(data_to_insert).execute()
             
+            # Track saved domains to prevent duplicates in future queries
+            for result in results_to_save:
+                self.saved_domains.add(result['domain'].lower())
+            
             print(f"[+] Berhasil! {len(results_to_save)} hasil disimpan ke Supabase (tabel: {table_name})")
             return True
             
@@ -515,6 +527,14 @@ class DuckDuckGoScraper:
                                 raise
                     
                     print(f"[+] Berhasil! {successful_count} hasil disimpan (duplikat: {failed_count} skipped)")
+                    # Track successfully saved domains
+                    for item in data_to_insert:
+                        try:
+                            self.supabase.table(table_name).select('link').eq('link', item['link']).execute()
+                            # If we get here, it was saved
+                            self.saved_domains.add(item['domain'].lower())
+                        except:
+                            pass
                     return True
                 except Exception as inner_error:
                     print(f"[-] Gagal save individual items: {inner_error}")
