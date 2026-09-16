@@ -32,6 +32,14 @@ export async function middleware(request: NextRequest) {
 
     // Check token for protected routes
     if (!token) {
+        // For API endpoints, return 401 instead of redirecting
+        if (pathname.startsWith('/api/')) {
+            return NextResponse.json(
+                { error: 'Unauthorized: No authentication token' },
+                { status: 401 }
+            );
+        }
+        // For page routes, redirect to login
         return NextResponse.redirect(new URL('/peler', request.url));
     }
 
@@ -39,6 +47,14 @@ export async function middleware(request: NextRequest) {
         await jwtVerify(token, secret);
         return NextResponse.next();
     } catch {
+        // For API endpoints, return 401 instead of redirecting
+        if (pathname.startsWith('/api/')) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Invalid or expired token' },
+                { status: 401 }
+            );
+        }
+        // For page routes, redirect to login
         return NextResponse.redirect(new URL('/peler', request.url));
     }
 }
