@@ -35,7 +35,7 @@ class DuckDuckGoScraper:
         # Video Streaming Services
         'netflix.com', 'primevideo.com',
         # Google Services
-        'play.google.com', 'ads.google.com',
+        'play.google.com', 'ads.google.com', 'groups.google.com',
         # Ads/Marketing
         'amazon.com', 'ebay.com', 'aliexpress.com',
         # E-commerce
