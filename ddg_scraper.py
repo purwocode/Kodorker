@@ -45,7 +45,7 @@ class DuckDuckGoScraper:
         # Search Engines & Tech Platforms
         'bing.com', 'yahoo.com', 'microsoft.com',
         # Other
-        'wikipedia.org', 'wiki.fandom.com',  # Optional: uncomment jika ingin exclude
+        'wikipedia.org', 'wiki.fandom.com', 'grokipedia.com',  # Optional: uncomment jika ingin exclude
     }
     
     @staticmethod
