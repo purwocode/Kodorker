@@ -41,9 +41,9 @@ export async function GET() {
         const uniqueQueries = new Set((results as SearchResult[])?.map((r) => r.query) || []);
         const uniqueTitles = new Set((results as SearchResult[])?.map((r) => r.title) || []);
 
-        // Get recent results (limit to 10)
+        // Get recent results (limit to 1000 for display/download)
         const recentResults = ((results as SearchResult[]) || [])
-            .slice(0, 10)
+            .slice(0, 1000)
             .map((r) => ({
                 id: r.id,
                 domain: r.domain,
