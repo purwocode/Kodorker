@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 
 interface SearchResult {
     id: number;
@@ -10,7 +11,35 @@ interface SearchResult {
     created_at: string;
 }
 
-export async function GET() {
+// Verify JWT token from cookies
+async function verifyAuth(request: NextRequest) {
+    const token = request.cookies.get('auth_token')?.value;
+
+    if (!token) {
+        return { valid: false, error: 'Unauthorized: No authentication token' };
+    }
+
+    try {
+        const secret = new TextEncoder().encode(
+            process.env.JWT_SECRET || 'dorker-super-secret-key-change-in-production'
+        );
+        await jwtVerify(token, secret);
+        return { valid: true };
+    } catch (error) {
+        return { valid: false, error: 'Unauthorized: Invalid token' };
+    }
+}
+
+export async function GET(request: NextRequest) {
+    // Verify authentication first
+    const auth = await verifyAuth(request);
+    if (!auth.valid) {
+        return NextResponse.json(
+            { error: auth.error },
+            { status: 401 }
+        );
+    }
+
     try {
         // Initialize Supabase client
         const { createClient } = await import('@supabase/supabase-js');
