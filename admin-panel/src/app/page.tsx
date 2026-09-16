@@ -9,13 +9,6 @@ interface ScraperStats {
   total_results: number;
   total_queries: number;
   unique_titles: number;
-  recent_results: Array<{
-    id: number;
-    domain: string;
-    title: string;
-    query: string;
-    created_at: string;
-  }>;
 }
 
 
@@ -27,7 +20,7 @@ export default function HomePage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const statsRes = await fetch('/api/stats');
+      const statsRes = await fetch('/api/public/stats');
 
       if (!statsRes.ok) throw new Error('Failed to fetch stats');
       const statsData = await statsRes.json();
