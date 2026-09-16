@@ -3,10 +3,15 @@
 Check database untuk detect duplicate domains
 """
 
+import sys
+import io
 from supabase import create_client
 import os
 from dotenv import load_dotenv
 from collections import defaultdict
+
+# Force UTF-8 output
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 load_dotenv()
 
@@ -44,7 +49,7 @@ print(f"Unique domains: {len(domain_count)}")
 print(f"Duplicate domains: {len(duplicates)}\n")
 
 if duplicates:
-    print("❌ DUPLICATE DOMAINS FOUND:\n")
+    print("[!] DUPLICATE DOMAINS FOUND:\n")
     for domain, records in sorted(duplicates.items()):
         print(f"  Domain: {domain} ({len(records)} records)")
         for i, record in enumerate(records):
@@ -53,7 +58,7 @@ if duplicates:
             print(f"        Created: {record['created_at']}")
         print()
 else:
-    print("✅ NO DUPLICATE DOMAINS FOUND!")
+    print("[+] NO DUPLICATE DOMAINS FOUND!")
     print(f"   All {len(domain_count)} domains are unique (1 link per domain)")
 
 print("\n" + "="*100)
