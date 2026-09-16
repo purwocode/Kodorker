@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
         pathname === '/peler' ||
         pathname === '/api/auth/login' ||
         pathname === '/api/auth/logout' ||
+        pathname.startsWith('/api/public/') ||
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
         pathname === '/favicon.ico';
